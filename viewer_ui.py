@@ -40,7 +40,7 @@ class PICV(QMainWindow, Ui_MainWindow):
         self.ZoomSld.setEnabled(True)
         self.FilePath.setEnabled(True)
         self.DeleteButton.setEnabled(True)
-        self.loagflag = False
+        self.ShowLabel.setScaledContents(True)
         #mouseMoveEvent
         self.centralwidget.setMouseTracking(True)
         self.Frame.setMouseTracking(True)
@@ -54,7 +54,7 @@ class PICV(QMainWindow, Ui_MainWindow):
 
     def SetFilePath(self):
         self.FilePath.clear()
-        dirname = QFileDialog.getExistingDirectory(self, "浏览", 'c:/')
+        dirname = QFileDialog.getExistingDirectory(self, "浏览", 'H:/JupyterImage')
         if dirname:
             self.FilePath.setText(dirname)
         else:
@@ -68,10 +68,7 @@ class PICV(QMainWindow, Ui_MainWindow):
         if self.img_list:
             for j in self.img_list:
                 self.ImgPath.addItem(j)  # 添加项目
-
-    def Loading(self):#加载图片并确定缩放率
-        self.AfterOpenFile()
-        self.pic = QPixmap(self.img_list[self.ImgPath.currentRow()])
+    def fixpoint(self):
         self.y = 0
         self.x = 0
         if self.Frame.size().height()/self.pic.size().height() >= self.Frame.size().width()/self.pic.size().width():#取最小的作为缩放率
@@ -82,18 +79,22 @@ class PICV(QMainWindow, Ui_MainWindow):
             self.x = (self.Frame.size().width() - self.pic.size().width() * r) / 2
         self.ZoomSld.setValue(r * 100)
         self.ZoomShow()
-        self.ShowRate.setText('缩放率：{:.2f}'.format(r))
+
+    def Loading(self):#加载图片并确定缩放率
+        self.AfterOpenFile()
+        self.pic = QPixmap(self.img_list[self.ImgPath.currentRow()])
+        self.fixpoint()
 
     def ZoomShow(self):#缩放率设置
         r = self.ZoomSld.value() / 100
-        temp = self.pic.scaled(self.pic.size() * r)
-        self.ShowLabel.setGeometry(self.x, self.y, temp.size().width(), temp.size().height())
+        temp = self.pic.scaled(self.pic.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        self.ShowLabel.setGeometry(self.x, self.y, temp.size().width() * r, temp.size().height() * r)
         self.ShowLabel.setPixmap(temp)
         self.ShowRate.setText('缩放率：{:.2f}'.format(r))
 
     def nofocuslft(self, r):  # 无焦点缩放
         r = r / 100
-        temp = self.pic.scaled(self.pic.size() * r)
+        temp = self.pic.size() * r
         ratex = (temp.width() - self.ShowLabel.width()) / 2
         ratey = (temp.height() - self.ShowLabel.height()) / 2
         self.x = self.ShowLabel.x() - ratex
@@ -101,7 +102,7 @@ class PICV(QMainWindow, Ui_MainWindow):
 
     def hasfocuslft(self, r):  # 有焦点缩放
         r = r / 100
-        temp = self.pic.scaled(self.pic.size() * r)
+        temp = self.pic.size() * r
         ratex = temp.width() / self.ShowLabel.width()
         ratey = temp.height() / self.ShowLabel.height()
         self.x = (self.zx - self.Frame.x())*(1-ratex) + self.ShowLabel.x() * ratex
@@ -112,6 +113,13 @@ class PICV(QMainWindow, Ui_MainWindow):
         self.ImgPath.takeItem(ind)  # 可视界面item中删除项
         os.remove(self.img_list[ind])  # 文件删除
         self.img_list.pop(ind)  # 逻辑引用同步
+    def mouseDoubleClickEvent(self, e):
+        if self.Inlabel:
+            if e.button() == Qt.LeftButton:
+                self.zx = e.x()
+                self.zy = e.y()
+                self.hasfocuslft(self.ZoomSld.value()+50)
+                self.ZoomSld.setValue(self.ZoomSld.value()+50)
 
     def wheelEvent(self, e):
         self.zx = e.x()
@@ -133,7 +141,8 @@ class PICV(QMainWindow, Ui_MainWindow):
         if self.Inlabel:
             if e.button() == Qt.LeftButton:
                 self.moveflag = True
-
+            if e.button() == Qt.RightButton:
+                self.fixpoint()
 
     def mouseMoveEvent(self, e):
         self.centralwidget.setMouseTracking(True)
